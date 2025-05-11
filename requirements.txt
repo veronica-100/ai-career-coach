@@ -1,3 +1,17 @@
 streamlit
 pandas
+<<<<<<< HEAD
 openai
+=======
+matplotlib
+seaborn
+numpy
+markdown2
+weasyprint
+google-generativeai
+scikit-learn
+langchain
+langchain-community
+chromadb
+# fsspec # often a dependency of other libs like pandas for s3, etc. might not be directly needed
+>>>>>>> fa85013 (Dev/WIP updates)

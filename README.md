@@ -1,6 +1,5 @@
-# :earth_americas: GDP dashboard template
-
-A simple Streamlit app showing the GDP of different countries in the world.
+# 🤖 AI Career Coach 💼: Using GenAI to Decode Data Job Trends and Give Personalized Career Advice
+A Streamlit app outgrowth of the Kaggle Google GenAI Capstone Challenge
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
 

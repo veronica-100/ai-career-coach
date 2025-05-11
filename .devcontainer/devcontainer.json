@@ -1,5 +1,5 @@
 {
-  "name": "Python 3",
+  "name": "Python 3 AI Career Coach", // Corrected: Removed extra quote
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
   "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bullseye",
   "customizations": {
@@ -17,6 +17,8 @@
       ]
     }
   },
+  // Corrected: postCreateCommand moved to be a top-level property
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libcairo2 libgdk-pixbuf2.0-0",
   "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
   "postAttachCommand": {
     "server": "streamlit run streamlit_app.py --server.enableCORS false --server.enableXsrfProtection false"

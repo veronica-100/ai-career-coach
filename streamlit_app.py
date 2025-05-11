@@ -2,150 +2,531 @@ import streamlit as st
 import pandas as pd
 import math
 from pathlib import Path
+import os
+import json
+import re
+import time
+import numpy as np
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+import textwrap
+import markdown2
+# from IPython.display import Markdown, FileLink, display # Not needed for streamlit
+from weasyprint import HTML # Make sure NotoColorEmoji.ttf is available
+from base64 import b64encode
+import google.generativeai as genai
+# from kaggle_secrets import UserSecretsClient # Not needed for streamlit
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import PCA # Not used in current snippet, but kept from original
+from sklearn.cluster import KMeans # Not used in current snippet, but kept from original
 
-# Set the title and favicon that appear in the Browser's tab bar.
+# Langchain
+from langchain.schema import Document
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.document_loaders import TextLoader # Used for resume file if uploaded
+
+# Chroma
+import chromadb
+from chromadb.config import Settings
+
+# --- Page Configuration ---
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title='🤖 AI Career Coach 💼',
+    page_icon='🤖', # Use the emoji directly
+    layout='wide'
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# --- Helper Functions (some adapted from your script) ---
+@st.cache_data # Cache data loading
+def load_df(uploaded_file):
+    if uploaded_file:
+        return pd.read_csv(uploaded_file)
+    return None
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+@st.cache_data # Cache Gemini API calls
+def get_gemini_embeddings(texts, task_type="SEMANTIC_SIMILARITY"):
+    # This function will call the API, ensure API key is configured before calling
+    return [genai.embed_content(model="models/text-embedding-004", content=t, task_type=task_type)['embedding'] for t in texts]
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+@st.cache_data(show_spinner=False) # Cache Gemini API calls for content generation
+def generate_gemini_content(model_name, prompt_text):
+    model = genai.GenerativeModel(model_name)
+    response = model.generate_content(prompt_text)
+    return response.text
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
+def extract_json_from_text(text):
+    # Try to find JSON within backticks
+    match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
+    if match:
+        json_string = match.group(1)
+    else:
+        # If not found in backticks, try to find any valid JSON object
+        # This is a bit more lenient but might grab unintended JSON if the text is complex
+        match = re.search(r'(\{[\s\S]*\})', text)
+        if match:
+            json_string = match.group(1)
         else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+            st.error("No JSON block found in the model's response.")
+            return {} # Return empty dict if no JSON found
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+    # Remove non-printable ASCII control characters (excluding tab, newline, carriage return)
+    cleaned_json_string = ''.join(char for char in json_string if 32 <= ord(char) < 127 or ord(char) in [9, 10, 13])
+    try:
+        return json.loads(cleaned_json_string)
+    except json.JSONDecodeError as e:
+        st.error(f"JSONDecodeError after cleaning: {e}")
+        st.text_area("Problematic JSON string:", cleaned_json_string, height=200)
+        return {} # Return an empty dict or handle the error as needed
+
+# --- API Key Configuration ---
+# Try to get API key from Streamlit secrets (for deployment)
+try:
+    api_key = st.secrets.get("GOOGLE_API_KEY")
+    if not api_key: # If key exists in secrets but is empty
+        api_key = None
+except AttributeError: # If st.secrets is not available (local development without secrets.toml)
+    api_key = None
+
+if not api_key:
+    st.sidebar.subheader("🔑 API Key Configuration")
+    api_key = st.sidebar.text_input("Enter your Google API Key:", type="password", help="Get your key from AI Studio.")
+
+if api_key:
+    try:
+        genai.configure(api_key=api_key)
+        st.sidebar.success("API Key Configured!")
+    except Exception as e:
+        st.sidebar.error(f"API Key Configuration Error: {e}")
+        st.stop()
+else:
+    st.warning("Please enter your Google API Key in the sidebar to use the app.")
+    st.stop()
+
+
+# --- Main App ---
+st.markdown('''
+# 🤖 AI Career Coach for Busy Data Professionals 💼
+
+A GenAI-powered assistant to analyze job trends, extract skills, and provide personalized career advice.
+Finding a clear career path in the evolving data industry can be overwhelming.
+This app leverages Generative AI to help data professionals navigate their career journey using real job market data, skill extraction, and personalized role recommendations.
+Unlike other comparison tools, this app takes it one step further - by providing next step guidance to candidates looking for insight on potential areas to improve and actions they can take today to align themselves better to role and job description requirements.
+''')
+
+st.markdown('''
+---
+## ⚛ GenAI Capabilities Used
+- **Document Understanding:** Parse job descriptions to extract in-demand skills.
+- **Embeddings + Vector Search:** Match a user's resume to the most relevant job clusters.
+- **Few-shot Prompting + Structured Output:** Generate tailored career advice with recommendations.
+
+Models used (via Vertex AI / Google AI Studio):
+- `gemini-2.0-flash-lite` (or similar for skill extraction)
+- `text-embedding-004`
+- `gemini-1.5-pro-002` / `gemini-2.5-pro-exp-03-25` (or latest available pro model)
+''')
+
+st.markdown('''
+---
+## 📌 Setup & Inputs
+''')
+
+# --- Inputs ---
+uploaded_job_data_file = st.file_uploader(
+    "1. Upload your job data CSV",
+    type="csv",
+    help="A small .csv dataset (e.g., 50 rows) of job data that must include a column named 'description' to use for analysis."
+)
+resume_text_input = st.text_area(
+    "2. Paste the content of your resume here",
+    height=200,
+    placeholder="No personal details are needed - just experience, skills, etc.",
+    help="Paste your anonymized resume content."
+)
+
+if st.button("✨ Analyze Career Path"):
+    if not uploaded_job_data_file:
+        st.error("❌ Please upload the job data CSV file.")
+        st.stop()
+    if not resume_text_input.strip():
+        st.error("❌ Please paste your resume text.")
+        st.stop()
+
+    df = load_df(uploaded_job_data_file)
+    if df is None or 'description' not in df.columns:
+        st.error("❌ CSV file is invalid or does not contain a 'description' column.")
+        st.stop()
+
+    job_descriptions = df['description'].dropna().tolist() # Ensure it's a list of strings
+    if not job_descriptions:
+        st.error("❌ No job descriptions found in the uploaded file after dropping NaNs.")
+        st.stop()
+
+    # Limit to 50 for this demo as in original script
+    job_descriptions = job_descriptions[:50]
+    st.info(f"Found {len(df)} jobs in CSV. Analyzing up to {len(job_descriptions)} job descriptions.")
+
+
+    # --- ⚗️ GenAI Capability 1: Document Understanding — Skill Extraction ---
+    st.markdown("--- \n## ⚗️ GenAI Capability 1: Document Understanding — Skill Extraction")
+    
+    # For Streamlit, we might not want to save to a file by default unless explicitly needed
+    # results_file = "extracted_skills.json" # os.path.join("/kaggle/working/", "extracted_skills.json")
+    # For simplicity in Streamlit, let's re-extract each time or use st.cache for the extraction block
+    
+    all_hard_skills, all_soft_skills, results_list = [], [], []
+    model_skill_extraction = genai.GenerativeModel('models/gemini-2.0-flash-lite') # or a current equivalent
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    with st.spinner("Extracting skills from job descriptions... This may take a moment."):
+        for i, job_desc_text in enumerate(job_descriptions):
+            status_text.text(f"🔄 Processing job {i+1}/{len(job_descriptions)}...")
+            prompt = f"""
+            Extract the hard and soft skills from the following job description.
+            Format as JSON with 'Hard Skills' and 'Soft Skills' keys.
+            Each skill should be a concise phrase.
+
+            Job Description:
+            {job_desc_text}
+            """
+            try:
+                # Using the cached function for API call if this part is refactored into one
+                response_text = generate_gemini_content('models/gemini-2.0-flash-lite', prompt) # Adjust model if needed
+                # text = re.sub(r"```json|```", "", response.text.strip()) # Handled in extract_json
+                skills = extract_json_from_text(response_text)
+                
+                hard = skills.get('Hard Skills', [])
+                soft = skills.get('Soft Skills', [])
+                
+                all_hard_skills.extend(s for s in hard if isinstance(s, str)) # Ensure skills are strings
+                all_soft_skills.extend(s for s in soft if isinstance(s, str))
+                results_list.append({"job_index": i, "hard_skills": hard, "soft_skills": soft})
+
+            except Exception as e:
+                st.error(f"❌ Error processing job {i}: {e}\nRaw response was: {response_text[:200]}...") # Show partial response
+            time.sleep(0.5) # Respect API limits if any; Gemini often handles rate limiting well
+            progress_bar.progress((i + 1) / len(job_descriptions))
+        status_text.success(f"✅ Skill extraction complete for {len(job_descriptions)} jobs!")
+
+    # --- 📊 Visualize Top Skills ---
+    st.markdown("### 📊 Top Skills Visualization")
+    def plot_skills_st(skill_data, title, key_suffix):
+        if not skill_data:
+            st.write(f"No data to plot for {title}")
+            return None, None # Return None for fig and filename
+        
+        # Ensure skills are strings for plotting
+        skills_cleaned = [str(item[0]) for item in skill_data]
+        counts_cleaned = [item[1] for item in skill_data]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.barplot(x=np.array(counts_cleaned), y=np.array(skills_cleaned), palette="crest", ax=ax)
+        ax.set_title(title)
+        ax.set_xlabel("Frequency")
+        ax.set_ylabel("Skill")
+        plt.tight_layout()
+        
+        # Save figure to a BytesIO object for download
+        img_bytes = BytesIO()
+        plt.savefig(img_bytes, format='png')
+        img_bytes.seek(0)
+        
+        return fig, img_bytes
+
+    from io import BytesIO
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Top 10 Hard Skills")
+        top_hard = Counter(all_hard_skills).most_common(10)
+        if top_hard:
+            fig_hard, img_hard_bytes = plot_skills_st(top_hard, "Top 10 Hard Skills", "hard")
+            if fig_hard:
+                st.pyplot(fig_hard)
+                st.download_button(
+                    label="Download Hard Skills Chart",
+                    data=img_hard_bytes,
+                    file_name="top_hard_skills.png",
+                    mime="image/png"
+                )
+            for s, c in top_hard: st.write(f"  {s}: {c}")
+        else:
+            st.write("No hard skills extracted.")
+
+    with col2:
+        st.subheader("Top 10 Soft Skills")
+        top_soft = Counter(all_soft_skills).most_common(10)
+        if top_soft:
+            fig_soft, img_soft_bytes = plot_skills_st(top_soft, "Top 10 Soft Skills", "soft")
+            if fig_soft:
+                st.pyplot(fig_soft)
+                st.download_button(
+                    label="Download Soft Skills Chart",
+                    data=img_soft_bytes,
+                    file_name="top_soft_skills.png",
+                    mime="image/png"
+                )
+            for s, c in top_soft: st.write(f"  {s}: {c}")
+        else:
+            st.write("No soft skills extracted.")
+
+
+    # --- 𝄂𝄂𝄀𝄁 GenAI Capability 2: Embeddings + Vector Search 👀 ---
+    st.markdown("--- \n## 💎 GenAI Capability 2: Embeddings + Vector Search")
+    with st.spinner("Generating embeddings and performing vector search..."):
+        # Resume Embedding (using the text from st.text_area)
+        resume_embedding = get_gemini_embeddings([resume_text_input])[0]
+
+        # Prepare & Chunk Job Descriptions
+        documents = [Document(page_content=d) for d in job_descriptions] # Use the filtered list
+        docs_split = CharacterTextSplitter(chunk_size=500, chunk_overlap=50).split_documents(documents)
+
+        all_doc_texts = [doc.page_content for doc in docs_split]
+        all_doc_embeddings = get_gemini_embeddings(all_doc_texts)
+
+        # ChromaDB
+        # Use a relative path for Streamlit; this DB will be ephemeral on Streamlit Cloud
+        chroma_db_path = "./chroma_db_career_coach"
+        if not os.path.exists(chroma_db_path):
+            os.makedirs(chroma_db_path, exist_ok=True)
+
+        chroma_client = chromadb.PersistentClient(path=chroma_db_path)
+        collection_name = "job_descriptions_career_coach"
+        
+        # Delete collection if it exists to start fresh each time for this demo
+        try:
+            chroma_client.delete_collection(name=collection_name)
+        except:
+            pass # Collection might not exist, which is fine
+            
+        collection = chroma_client.create_collection(name=collection_name, metadata={"hnsw:space": "cosine"})
+        
+        if docs_split: # Ensure there are documents to add
+            collection.add(
+                ids=[f"doc_{i}" for i in range(len(docs_split))],
+                documents=all_doc_texts,
+                embeddings=all_doc_embeddings,
+                metadatas=[{"source": f"job_desc_chunk_{i}"} for i in range(len(docs_split))] # More descriptive metadata
+            )
+            st.success(f"📚 Added {len(docs_split)} document chunks to ChromaDB.")
+
+            # Query Resume vs Jobs
+            st.subheader("🔎 Top 3 Job Matches from Vector Search")
+            query_results = collection.query(query_embeddings=[resume_embedding], n_results=min(3, len(docs_split)))
+
+            if query_results and query_results["documents"] and query_results["documents"][0]:
+                for i, (doc_text, dist) in enumerate(zip(query_results["documents"][0], query_results["distances"][0])):
+                    similarity = 1 - dist # Since hnsw:space is cosine, distance is 1 - similarity
+                    bar = "🟩" * int(similarity * 10) + "⬜" * (10 - int(similarity * 10))
+                    st.markdown(f"**Match #{i + 1}** ({bar} {int(similarity * 100)}% match, Cosine Distance: {dist:.4f})")
+                    st.markdown(f"> {textwrap.shorten(doc_text, width=500, placeholder='...')}") # Show a snippet
+            else:
+                st.warning("No matching documents found in vector search.")
+        else:
+            st.warning("No document chunks were created for ChromaDB. Skipping vector search.")
+
+
+        # Cosine Similarity Heatmap (Resume vs Top N Job Chunks)
+        st.subheader("🔥 Cosine Similarity Heatmap: Resume vs Top Job Chunks")
+        top_n_heatmap = min(10, len(docs_split)) # Show up to 10 or fewer if not enough docs
+        if top_n_heatmap > 0:
+            # Using all_doc_embeddings which are already generated for all chunks
+            job_chunk_embeddings_for_heatmap = all_doc_embeddings[:top_n_heatmap]
+
+            similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
+
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2)) # Adjust size
+            sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
+                        xticklabels=[f"Job Chunk {i+1}" for i in range(top_n_heatmap)],
+                        yticklabels=["Resume"],
+                        vmin=0, vmax=1, ax=ax_heatmap)
+            ax_heatmap.set_title(f"Cosine Similarity: Resume vs Top {top_n_heatmap} Job Description Chunks")
+            plt.tight_layout()
+            st.pyplot(fig_heatmap)
+
+            img_heatmap_bytes = BytesIO()
+            plt.savefig(img_heatmap_bytes, format='png')
+            img_heatmap_bytes.seek(0)
+            st.download_button(
+                label="Download Heatmap",
+                data=img_heatmap_bytes,
+                file_name=f"similarity_heatmap_top_{top_n_heatmap}.png",
+                mime="image/png"
+            )
+        else:
+            st.write("Not enough job chunks to create a heatmap.")
+
+
+    # --- 🗺️ GenAI Capability 3: Career Advice ---
+    st.markdown("--- \n## 🗺️ GenAI Capability 3: Personalized Career Advice")
+    with st.spinner("Generating personalized career advice... This may take a couple of calls to the AI."):
+        # Using a current, robust model. You might need to adjust model names.
+        # Consider using a single, more capable model for simplicity if desired.
+        model_name_pro = 'gemini-1.5-pro-latest' # or 'gemini-1.5-flash-latest' for speed/cost
+
+        # 1, 3, 4 from one model call
+        prompt_1_3_4 = f"""
+        You are an expert career coach for data professionals.
+        Given the following resume, provide a detailed, friendly, and personalized career path analysis.
+
+        Format your response STRICTLY as a JSON object with the following keys:
+        - "Current Role": A single sentence summarizing the candidate's likely current role or experience level.
+        - "Missing Skills": A list of objects. Each object should have:
+            - "Skill": (string) The name of the skill.
+            - "Details": (string) Why this skill is important for career progression, tailored to the resume.
+            - "Relevance": (string) How it connects to potential next roles.
+        - "Learning Resources": A list of objects. Each object should have:
+            - "Area": (string) The skill or area to focus on.
+            - "ResourceSuggestion": (string) Suggest specific free or low-cost online resources (e.g., a type of course on Coursera, a specific YouTube channel, official documentation).
+
+        Resume:
+        ---
+        {resume_text_input}
+        ---
+        Ensure the output is only the JSON object, starting with {{ and ending with }}.
+        """
+        response_1_3_4_text = generate_gemini_content(model_name_pro, prompt_1_3_4)
+        part_1_3_4_json = extract_json_from_text(response_1_3_4_text)
+        if not part_1_3_4_json:
+            st.error("Failed to get Current Role, Missing Skills, or Learning Resources. Model output:")
+            st.code(response_1_3_4_text)
+
+
+        # 2 from another model call (or combine into one prompt)
+        prompt_2 = f"""
+        You are an expert career coach for data professionals.
+        Based on the provided resume, suggest potential next career roles.
+
+        Format your response STRICTLY as a JSON object with the key "Suggested Next Roles".
+        "Suggested Next Roles" should be a list of objects. Each object should have:
+        - "Role": (string) The title of the suggested role.
+        - "Reasoning": (string) Why this role is a good fit or next step based on the resume.
+
+        Resume:
+        ---
+        {resume_text_input}
+        ---
+        Ensure the output is only the JSON object, starting with {{ and ending with }}.
+        """
+        response_2_text = generate_gemini_content(model_name_pro, prompt_2) # Using same pro model
+        part_2_json = extract_json_from_text(response_2_text)
+        if not part_2_json:
+            st.error("Failed to get Suggested Next Roles. Model output:")
+            st.code(response_2_text)
+
+        # Merge JSONs
+        career_advice = {
+            "Current Role": part_1_3_4_json.get("Current Role", "N/A"),
+            "Suggested Next Roles": part_2_json.get("Suggested Next Roles", []),
+            "Missing Skills": part_1_3_4_json.get("Missing Skills", []),
+            "Learning Resources": part_1_3_4_json.get("Learning Resources", [])
+        }
+
+        st.subheader("📄 Combined Career Advice (Raw JSON)")
+        st.json(career_advice)
+
+        # --- Format to Markdown and PDF ---
+        st.subheader("✨ Formatted Career Advice")
+
+        # Format Suggested Next Roles
+        next_roles_md_list = []
+        for item in career_advice.get("Suggested Next Roles", []):
+            if isinstance(item, dict):
+                next_roles_md_list.append(f"- **{item.get('Role', 'N/A')}**: {item.get('Reasoning', 'N/A')}")
+            elif isinstance(item, str):
+                 next_roles_md_list.append(f"- {item}")
+        next_roles_md = "\n".join(next_roles_md_list) if next_roles_md_list else "*No specific next roles suggested.*"
+
+
+        # Format Missing Skills
+        missing_skills_md_list = []
+        for item in career_advice.get("Missing Skills", []):
+            if isinstance(item, dict):
+                missing_skills_md_list.append(f"- **{item.get('Skill', item.get('Details', 'N/A'))}**: {item.get('Details', item.get('Relevance', 'N/A'))} ({item.get('Relevance', 'Relevant for progression')})")
+            elif isinstance(item, str):
+                missing_skills_md_list.append(f"- {item}")
+        missing_skills_md = "\n".join(missing_skills_md_list) if missing_skills_md_list else "*No specific missing skills identified or already well-rounded!*"
+
+
+        # Format Learning Resources
+        learning_resources_md_list = []
+        for item in career_advice.get("Learning Resources", []):
+            if isinstance(item, dict):
+                learning_resources_md_list.append(f"- **{item.get('Area', 'N/A')}**: {item.get('ResourceSuggestion', 'N/A')}")
+            elif isinstance(item, str):
+                learning_resources_md_list.append(f"- {item}")
+        learning_resources_md = "\n".join(learning_resources_md_list) if learning_resources_md_list else "*No specific learning resources suggested.*"
+
+        md_output = f"""
+### 🎯 AI Career Coach: Personalized Career Advice
+
+**✅ Current Role:** {career_advice.get("Current Role", "N/A")}
+
+**🔼 Suggested Next Roles:**
+{next_roles_md}
+
+**🧩 Missing Skills to Develop:**
+{missing_skills_md}
+
+**📚 Learning Resources & Suggestions:**
+{learning_resources_md}
+        """
+        st.markdown(md_output)
+
+        # --- PDF Generation (Requires NotoColorEmoji.ttf in the same directory or correct path) ---
+        try:
+            html_body_content = markdown2.markdown(md_output)
+            
+            # Check for NotoColorEmoji.ttf - place it in your app's root directory
+            font_path = "NotoColorEmoji.ttf"
+            font_url_src = f"src: url('{font_path}');" if os.path.exists(font_path) else ""
+            if not os.path.exists(font_path):
+                st.warning(f"⚠️ {font_path} not found. Emojis might not render correctly in PDF.")
+
+
+            html_full_for_pdf = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    @page {{ margin: 20px; }}
+                    @font-face {{
+                        font-family: "Noto Color Emoji";
+                        {font_url_src} /* Path to NotoColorEmoji.ttf */
+                    }}
+                    body {{
+                        font-family: "Noto Color Emoji", "Helvetica", "Arial", sans-serif;
+                        line-height: 1.6;
+                        max-width: 800px;
+                        margin: 1rem auto;
+                        padding: 20px;
+                    }}
+                </style>
+            </head>
+            <body>
+                {html_body_content}
+            </body>
+            </html>
+            """
+            pdf_bytes = HTML(string=html_full_for_pdf).write_pdf()
+            st.download_button(
+                label="📥 Download Career Advice PDF",
+                data=pdf_bytes,
+                file_name="ai_career_coach_advice.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Could not generate PDF: {e}")
+            st.info("You can copy the Markdown text above as an alternative.")
+
+    st.balloons()
+    st.success("🎉 Analysis Complete!")
+
+
+st.markdown("---")
+st.markdown("Built with [Streamlit](https://streamlit.io) & Google Generative AI Models.")
+st.markdown("Adapted from an original Kaggle Notebook concept.")

@@ -79,6 +79,31 @@ def extract_json_from_text(text):
         st.text_area("Problematic JSON string:", cleaned_json_string, height=200)
         return {} # Return an empty dict or handle the error as needed
 
+'''
+# --- Try to limit calls per minute ---
+
+API_CALL_LIMIT_PER_SESSION = 5
+session_calls = st.session_state.get('api_calls', 0)
+
+def call_google_api(user_input):
+    global session_calls
+    if session_calls < API_CALL_LIMIT_PER_SESSION:
+        # Make the Google API call here
+        response = f"Google API response for: {user_input} (Call {session_calls + 1})"
+        session_calls += 1
+        st.session_state['api_calls'] = session_calls
+        return response
+    else:
+        return "API call limit reached for this session."
+
+user_query = st.text_input("Enter your query:")
+if st.button("Ask Google"):
+    result = call_google_api(user_query)
+    st.write(result)
+
+st.write(f"API calls made this session: {session_calls}/{API_CALL_LIMIT_PER_SESSION}")
+'''
+
 # --- API Key Configuration ---
 # Try to get API key from Streamlit secrets (for deployment)
 try:

@@ -1,0 +1,52 @@
+Professional Summary:
+--------------------------------
+Detail-oriented Data Analyst with 3+ years of experience transforming raw data into actionable insights. Skilled in SQL, Excel, and data visualization tools. Passionate about solving business challenges through data storytelling and analysis.
+
+Technical Skills:
+--------------------------------
+- Tools: Excel, SQL, Power BI, Tableau, Looker, Google Data Studio
+- Programming: Python (Pandas, NumPy, Seaborn, Matplotlib), R
+- Databases: PostgreSQL, MySQL, Google BigQuery
+- Reporting: A/B testing, KPI tracking, Business Intelligence
+- Cloud: GCP (BigQuery, Cloud Functions), AWS (Redshift, S3)
+
+Professional Experience:
+--------------------------------
+**Data Analyst**  
+InsightCorp Analytics, New York, NY  
+*March 2021 – Present*
+- Created and maintained dashboards for product and marketing teams to monitor key business metrics.
+- Automated weekly sales reports, reducing turnaround time by 60%.
+- Performed churn analysis that informed $500K retention campaign.
+
+**Junior Business Analyst**  
+MarketView Inc., Remote  
+*June 2019 – Feb 2021*
+- Conducted competitor and customer segmentation analysis using clustering techniques.
+- Supported campaign optimization using A/B testing and regression analysis.
+
+Projects:
+--------------------------------
+**1. Sales Performance Dashboard**  
+- Developed a Power BI dashboard that visualized real-time sales KPIs across regions.
+
+**2. Customer Segmentation**  
+- Applied k-means clustering on CRM data to identify high-value customer groups.
+
+Education:
+--------------------------------
+Bachelor of Business Analytics  
+University of Michigan – Ann Arbor  
+Graduated: 2019
+
+Certifications:
+--------------------------------
+- Google Data Analytics Professional Certificate (Coursera)
+- Tableau Desktop Specialist
+
+Soft Skills:
+--------------------------------
+- Business acumen and analytical thinking
+- Clear communication of data insights
+- Stakeholder engagement and collaboration
+- Strong attention to detail

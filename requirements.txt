@@ -5,14 +5,9 @@ matplotlib
 seaborn
 numpy
 markdown2
-weasyprint
 google-generativeai
 scikit-learn
 langchain
 langchain-community
-chromadb
-libpangoft2-1.0-0
-libfreetype6
-libharfbuzz0b
-libglib2.0-0
 pysqlite3-binary
+chromadb

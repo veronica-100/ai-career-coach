@@ -17,9 +17,11 @@ A Streamlit app outgrowth of the Kaggle Google GenAI Capstone Challenge
    ```
    $ streamlit run streamlit_app.py
    ```
-3. Paste your free-tier or higher Google API Key in the sidebar on the landing page to begin
+3. Paste your free-tier or higher in the Google API Key box in the sidebar on the landing page to begin  
+![ai-career-coach-landing-page](/workspaces/ai-career-coach/png/ai-career-coach-landing-page.png "Paste key in the box")  
 
+4. You have a choice of using existing sample data for analysis or uploading your own  
+![ai-career-coach-upload-or-use-samples](/workspaces/ai-career-coach/png/ai-career-coach-upload-or-use-samples.png "Upload new jobs csv file, and/or Paste new resume text, and/or use existing sample data")  
 
-4. You have a choice of using existing sample data for analysis or uploading your own
-
-5. AI Career Coach includes a complimentary download of your personalized career advice in convenient .pdf format
+5. AI Career Coach includes a complimentary download of your personalized career advice in convenient .pdf format  
+![ai-career-coach-pdf-download-button](/workspaces/ai-career-coach/png/ai-career-coach-pdf-download-button.png "Convenient download pdf button")  

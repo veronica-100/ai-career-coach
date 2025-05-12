@@ -258,6 +258,8 @@ if st.button("✨ Analyze Career Path"):
 
             Job Description:
             {job_desc_text}
+
+            IMPORTANT: Do not use trailing commas after the last item in arrays.
             """
             try:
                 # Using the cached function for API call if this part is refactored into one
@@ -411,46 +413,42 @@ if st.button("✨ Analyze Career Path"):
 
         # Cosine Similarity Heatmap (Resume vs Top N Job Chunks)
         st.subheader("🔥 Cosine Similarity Heatmap: Resume vs Top Job Chunks")
-        top_n_heatmap = min(10, len(docs_split))  # Show up to 10 or fewer if not enough docs
+        query_results_heatmap = collection.query(query_embeddings=[resume_embedding], n_results=min(10, len(docs_split)))
+        top_n_heatmap = len(query_results_heatmap.documents[0]) if query_results_heatmap.documents else 0
         if top_n_heatmap > 0:
             # Using all_doc_embeddings which are already generated for all chunks
             job_chunk_embeddings_for_heatmap = all_doc_embeddings[:top_n_heatmap]
-        
+
             similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
             # Get job titles for the heatmap labels
             heatmap_labels = []
             try:
                 if 'title' in df.columns:
                     for i in range(top_n_heatmap):
-                        try:
-                            # Match the metadata access pattern from your working Top 3 code
-                            source_info = docs_split[i].metadata["source"]  # Direct access like query_results
-                            job_index = int(source_info.split("_")[-1])
-                            job_title = df.iloc[job_index]['title']
-                            truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                            heatmap_labels.append(truncated_title)
-                        except (KeyError, ValueError, IndexError) as e:
-                            # st.write(f"Debug - Error for chunk {i}:", e)  # Optional debug line
-                            heatmap_labels.append(f"Job Chunk {i + 1}")
+                        # Find the index of the chunk in docs_split
+                        chunk_text = query_results_heatmap.documents[0][i]
+                        chunk_index_in_docs_split = all_doc_texts.index(chunk_text)
+                        # Extract original job index from chunk metadata
+                        source_info = docs_split[chunk_index_in_docs_split].metadata["source"]
+                        job_index = int(source_info.split("_")[-1])
+                        job_title = df.iloc[job_index]['title']
+                        truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                        heatmap_labels.append(truncated_title)
                 else:
                     heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
             except Exception as e:
                 st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
                 heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-            
-            # Optional debug line to see what labels were generated
-            # st.write("Debug - Heatmap labels:", heatmap_labels)
-            
-            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))
+
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
-                        xticklabels=heatmap_labels,
+                        xticklabels=heatmap_labels,  # Use job titles or chunk numbers
                         yticklabels=["Resume"],
                         vmin=0, vmax=1, ax=ax_heatmap)
-            
             ax_heatmap.set_title(f"Cosine Similarity: Resume vs Top {top_n_heatmap} Job Description Chunks")
             plt.tight_layout()
             st.pyplot(fig_heatmap)
-        
+
             img_heatmap_bytes = BytesIO()
             plt.savefig(img_heatmap_bytes, format='png')
             img_heatmap_bytes.seek(0)
@@ -629,7 +627,7 @@ if st.button("✨ Analyze Career Path"):
             </head>
             <body>
                 <div class="content">
-                    {html_body}
+                    {html_body_content}
                 </div>
             </body>
             </html>

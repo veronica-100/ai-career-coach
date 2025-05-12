@@ -17,7 +17,7 @@
     }
   },
   "postCreateCommand": [
-    "sudo apt-get update && sudo apt-get install -y weasyprint python3-pip python3-cffi python3-brotli libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libffi-dev",
+    "sudo apt-get update && sudo apt-get install -y weasyprint python3-pip python3-cffi python3-brotli libpangocairo-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libffi-dev",
     "pip install WeasyPrint",
     "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt || true",
     "[ -f requirements.txt ] && pip3 install --user -r requirements.txt || true",

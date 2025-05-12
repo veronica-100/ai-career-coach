@@ -1,0 +1,9 @@
+libpango1.0-0
+libpangocairo-1.0-0
+libcairo2
+libharfbuzz0b
+libpangoft2-1.0-0
+libffi-dev
+build-essential
+python3-cffi
+python3-brotli

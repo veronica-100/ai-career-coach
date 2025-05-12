@@ -151,60 +151,72 @@ SAMPLE_DATA_PATH = Path(__file__).parent / "sample_data"
 SAMPLE_RESUME = SAMPLE_DATA_PATH / "da_resume.txt"
 SAMPLE_JOBS = SAMPLE_DATA_PATH / "data_jobs_50.csv"
 
-# Add a radio button for data source selection
-data_source = st.radio(
-    "Choose data source:",
-    ["Upload My Data", "Use Sample Data"],
-    help="You can either upload your own data or use our sample data for testing"
-)
+# Create two columns for data source selection
+col1, col2 = st.columns(2)
 
-if data_source == "Upload My Data":
-    # Original file upload and text input
+with col1:
+    jobs_data_source = st.radio(
+        "Choose jobs data source:",
+        ["Upload Jobs CSV", "Use Sample Jobs Data"],
+        help="You can either upload your own jobs data or use our sample dataset"
+    )
+
+with col2:
+    resume_data_source = st.radio(
+        "Choose resume source:",
+        ["Paste Resume", "Use Sample Resume"],
+        help="You can either paste your own resume or use our sample resume"
+    )
+
+# Handle jobs data selection
+if jobs_data_source == "Upload Jobs CSV":
     uploaded_job_data_file = st.file_uploader(
         "1. Upload your job data CSV",
         type="csv",
-        help="A small .csv dataset (e.g., 50 rows) of job data that must include a column named 'description' to use for analysis."
+        help="A small .csv dataset (e.g., 50 rows) of job data that must include a column named 'description' and optionally, a column named 'title' to use for analysis."
     )
+else:
+    uploaded_job_data_file = SAMPLE_JOBS
+    with st.expander("Preview sample jobs data"):
+        try:
+            sample_df = pd.read_csv(SAMPLE_JOBS)
+            st.dataframe(sample_df.head())
+            st.success("✅ Using sample jobs data")
+        except Exception as e:
+            st.error(f"Error loading sample jobs data: {e}")
+
+# Handle resume selection
+if resume_data_source == "Paste Resume":
     resume_text_input = st.text_area(
-        "2. Paste the content of your resume here",
+        "2. Paste your resume text here:",
         height=200,
         placeholder="No personal details are needed - just experience, skills, etc.",
         help="Paste your anonymized resume content."
     )
 else:
-    # Load sample data
     try:
-        # Load sample resume
         with open(SAMPLE_RESUME, 'r') as f:
             resume_text_input = f.read()
-        
-        # Load sample jobs file
-        uploaded_job_data_file = SAMPLE_JOBS
-        
-        # Show preview of sample data
-        st.info("📄 Using sample resume and job data")
         with st.expander("Preview sample resume"):
             st.text(resume_text_input)
-        
-        with st.expander("Preview sample jobs data"):
-            sample_df = pd.read_csv(SAMPLE_JOBS)
-            st.dataframe(sample_df.head())
-            
+            st.success("✅ Using sample resume")
     except Exception as e:
-        st.error(f"Error loading sample data: {e}")
-        st.stop()
+        st.error(f"Error loading sample resume: {e}")
+        resume_text_input = ""
 
-# Modify your analyze button section
+# Analyze button and validation
 if st.button("✨ Analyze Career Path"):
-    if data_source == "Upload My Data":
-        if not uploaded_job_data_file:
-            st.error("❌ Please upload the job data CSV file.")
-            st.stop()
-        if not resume_text_input.strip():
-            st.error("❌ Please paste your resume text.")
-            st.stop()
+    # Validate jobs data
+    if jobs_data_source == "Upload Jobs CSV" and not uploaded_job_data_file:
+        st.error("❌ Please upload the job data CSV file.")
+        st.stop()
     
-    # Modify load_df function call to handle both uploaded and sample files
+    # Validate resume
+    if resume_data_source == "Paste Resume" and not resume_text_input.strip():
+        st.error("❌ Please paste your resume text.")
+        st.stop()
+    
+    # Load and validate jobs data
     if isinstance(uploaded_job_data_file, Path):
         df = pd.read_csv(uploaded_job_data_file)  # For sample data
     else:
@@ -219,7 +231,7 @@ if st.button("✨ Analyze Career Path"):
         st.error("❌ No job descriptions found in the file after dropping NaNs.")
         st.stop()
 
-    # Limit to 50 for this demo as in original script
+    # Limit to 50 for this demo
     job_descriptions = job_descriptions[:50]
     st.info(f"Found {len(df)} jobs in CSV. Analyzing up to {len(job_descriptions)} job descriptions.")
 
@@ -371,37 +383,66 @@ if st.button("✨ Analyze Career Path"):
             # Query Resume vs Jobs
             st.subheader("🔎 Top 3 Job Matches from Vector Search")
             query_results = collection.query(query_embeddings=[resume_embedding], n_results=min(3, len(docs_split)))
-
+            
             if query_results and query_results["documents"] and query_results["documents"][0]:
                 for i, (doc_text, dist) in enumerate(zip(query_results["documents"][0], query_results["distances"][0])):
-                    similarity = 1 - dist # Since hnsw:space is cosine, distance is 1 - similarity
+                    similarity = 1 - dist
                     bar = "🟩" * int(similarity * 10) + "⬜" * (10 - int(similarity * 10))
                     st.markdown(f"**Match #{i + 1}** ({bar} {int(similarity * 100)}% match, Cosine Distance: {dist:.4f})")
-                    st.markdown(f"> {textwrap.shorten(doc_text, width=500, placeholder='...')}") # Show a snippet
+            
+                    # Try to get the job title from the original DataFrame
+                    try:
+                        job_index = int(query_results["metadatas"][0][i]["source"].split("_")[-1])  # Extract original index
+                        if 'title' in df.columns:
+                            job_title = df.iloc[job_index]['title']
+                            # Truncate title to 30 characters
+                            truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                            st.markdown(f"**{truncated_title}**:  > {textwrap.shorten(doc_text, width=500, placeholder='...')}")
+                        else:
+                            st.markdown(f"> {textwrap.shorten(doc_text, width=500, placeholder='...')}")
+                    except (KeyError, ValueError, IndexError) as e:
+                        st.warning(f"Could not retrieve job title: {e}. Displaying description only.")
+                        st.markdown(f"> {textwrap.shorten(doc_text, width=500, placeholder='...')}")
+            
             else:
                 st.warning("No matching documents found in vector search.")
         else:
             st.warning("No document chunks were created for ChromaDB. Skipping vector search.")
 
-
         # Cosine Similarity Heatmap (Resume vs Top N Job Chunks)
         st.subheader("🔥 Cosine Similarity Heatmap: Resume vs Top Job Chunks")
-        top_n_heatmap = min(10, len(docs_split)) # Show up to 10 or fewer if not enough docs
+        top_n_heatmap = min(10, len(docs_split))  # Show up to 10 or fewer if not enough docs
         if top_n_heatmap > 0:
             # Using all_doc_embeddings which are already generated for all chunks
             job_chunk_embeddings_for_heatmap = all_doc_embeddings[:top_n_heatmap]
-
+        
             similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
-
-            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2)) # Adjust size
+        
+            # Get job titles for the heatmap labels
+            heatmap_labels = []
+            try:
+                if 'title' in df.columns:
+                    for i in range(top_n_heatmap):
+                        # Assuming each chunk belongs to one job, get the title from the first chunk's source
+                        job_index = int(query_results["metadatas"][0][i]["source"].split("_")[-1]) if query_results and query_results["metadatas"] and query_results["metadatas"][0] else i  # Use i as fallback
+                        job_title = df.iloc[job_index]['title']
+                        truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                        heatmap_labels.append(truncated_title)
+                else:
+                    heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+            except (KeyError, ValueError, IndexError, TypeError) as e:
+                st.warning(f"Could not retrieve all job titles for heatmap: {e}. Using chunk numbers.")
+                heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+        
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
-                        xticklabels=[f"Job Chunk {i+1}" for i in range(top_n_heatmap)],
+                        xticklabels=heatmap_labels,  # Use job titles or chunk numbers
                         yticklabels=["Resume"],
                         vmin=0, vmax=1, ax=ax_heatmap)
             ax_heatmap.set_title(f"Cosine Similarity: Resume vs Top {top_n_heatmap} Job Description Chunks")
             plt.tight_layout()
             st.pyplot(fig_heatmap)
-
+        
             img_heatmap_bytes = BytesIO()
             plt.savefig(img_heatmap_bytes, format='png')
             img_heatmap_bytes.seek(0)
@@ -413,7 +454,6 @@ if st.button("✨ Analyze Career Path"):
             )
         else:
             st.write("Not enough job chunks to create a heatmap.")
-
 
     # --- 🗺️ GenAI Capability 3: Career Advice ---
     st.markdown("--- \n## 🗺️ GenAI Capability 3: Personalized Career Advice")

@@ -491,9 +491,6 @@ if st.button("✨ Analyze Career Path"):
             "Learning Resources": part_1_3_4_json.get("Learning Resources", [])
         }
 
-        st.subheader("📄 Combined Career Advice (Raw JSON)")
-        st.json(career_advice)
-
         # --- Format to Markdown and PDF ---
         st.subheader("✨ Formatted Career Advice")
 

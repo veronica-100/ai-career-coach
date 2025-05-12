@@ -419,31 +419,32 @@ if st.button("✨ Analyze Career Path"):
             similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
         
             # Get job titles for the heatmap labels
-                   heatmap_labels = []
-                   try:
-                       if 'title' in df.columns:
-                           for i in range(top_n_heatmap):
-                               # Assuming the top_n_heatmap chunks are the first top_n in docs_split
-                               # We need to find the original index of the job description
-                               source_info = docs_split[i].metadata.get("source", "")
-                               try:
-                                   job_index = int(source_info.split("_")[-1])
-                                   job_title = df.iloc[job_index]['title']
-                                   truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                                   heatmap_labels.append(truncated_title)
-                               except (ValueError, IndexError):
-                                   heatmap_labels.append(f"Job Chunk {i + 1}") # Fallback if index extraction fails
-                       else:
-                           heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-                   except Exception as e:
-                       st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
-                       heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+            heatmap_labels = []
+            try:
+                if 'title' in df.columns:
+                    for i in range(top_n_heatmap):
+                        # Assuming the top_n_heatmap chunks are the first top_n in docs_split
+                        # We need to find the original index of the job description
+                        source_info = docs_split[i].metadata.get("source", "")
+                        try:
+                            job_index = int(source_info.split("_")[-1])
+                            job_title = df.iloc[job_index]['title']
+                            truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                            heatmap_labels.append(truncated_title)
+                        except (ValueError, IndexError):
+                            heatmap_labels.append(f"Job Chunk {i + 1}") # Fallback if index extraction fails
+                else:
+                    heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+            except Exception as e:
+                st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
+                heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
         
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
                         xticklabels=heatmap_labels,  # Use job titles or chunk numbers
                         yticklabels=["Resume"],
                         vmin=0, vmax=1, ax=ax_heatmap)
+            
             ax_heatmap.set_title(f"Cosine Similarity: Resume vs Top {top_n_heatmap} Job Description Chunks")
             plt.tight_layout()
             st.pyplot(fig_heatmap)

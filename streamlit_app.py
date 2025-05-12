@@ -432,7 +432,7 @@ if st.button("✨ Analyze Career Path"):
                                     job_title = df.iloc[job_index]['title']
                                     truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
                                     heatmap_labels.append(truncated_title)
-                                  else:
+                                else:
                                     heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if job_index out of range
                             except (ValueError, IndexError):
                                 heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if index extraction fails
@@ -443,7 +443,7 @@ if st.button("✨ Analyze Career Path"):
             except Exception as e:
                 st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
                 heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-        
+
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
                         xticklabels=heatmap_labels,  # Use job titles or chunk numbers

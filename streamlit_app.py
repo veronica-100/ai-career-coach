@@ -580,6 +580,24 @@ if st.button("✨ Analyze Career Path"):
                     margin: 1rem auto;
                     padding: 20px;
                 }}
+                h1, h2, h3, h4, h5, h6 {{
+                    line-height: 1.2;
+                    margin-top: 1em;
+                    margin-bottom: 0.5em;
+                }}
+                p {{
+                    margin-bottom: 1em;
+                }}
+                ul, ol {{
+                    margin-bottom: 1em;
+                    padding-left: 20px;
+                }}
+                li {{
+                    margin-bottom: 0.5em;
+                }}
+                strong {{
+                    font-weight: bold;
+                }}
             ''', font_config=font_config)
         
             html_full_for_pdf = f"""

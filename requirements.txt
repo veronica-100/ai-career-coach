@@ -11,3 +11,4 @@ langchain
 langchain-community
 pysqlite3-binary
 chromadb
+weasyprint

@@ -157,40 +157,82 @@ st.markdown('''
 ''')
 
 # --- Inputs ---
-uploaded_job_data_file = st.file_uploader(
-    "1. Upload your job data CSV",
-    type="csv",
-    help="A small .csv dataset (e.g., 50 rows) of job data that must include a column named 'description' to use for analysis."
-)
-resume_text_input = st.text_area(
-    "2. Paste the content of your resume here",
-    height=200,
-    placeholder="No personal details are needed - just experience, skills, etc.",
-    help="Paste your anonymized resume content."
+# Define paths to sample data
+SAMPLE_DATA_PATH = Path(__file__).parent / "sample_data"
+SAMPLE_RESUME = SAMPLE_DATA_PATH / "da_resume.txt"
+SAMPLE_JOBS = SAMPLE_DATA_PATH / "data_jobs_50.csv"
+
+# Add a radio button for data source selection
+data_source = st.radio(
+    "Choose data source:",
+    ["Upload My Data", "Use Sample Data"],
+    help="You can either upload your own data or use our sample data for testing"
 )
 
+if data_source == "Upload My Data":
+    # Original file upload and text input
+    uploaded_job_data_file = st.file_uploader(
+        "1. Upload your job data CSV",
+        type="csv",
+        help="A small .csv dataset (e.g., 50 rows) of job data that must include a column named 'description' to use for analysis."
+    )
+    resume_text_input = st.text_area(
+        "2. Paste the content of your resume here",
+        height=200,
+        placeholder="No personal details are needed - just experience, skills, etc.",
+        help="Paste your anonymized resume content."
+    )
+else:
+    # Load sample data
+    try:
+        # Load sample resume
+        with open(SAMPLE_RESUME, 'r') as f:
+            resume_text_input = f.read()
+        
+        # Load sample jobs file
+        uploaded_job_data_file = SAMPLE_JOBS
+        
+        # Show preview of sample data
+        st.info("📄 Using sample resume and job data")
+        with st.expander("Preview sample resume"):
+            st.text(resume_text_input)
+        
+        with st.expander("Preview sample jobs data"):
+            sample_df = pd.read_csv(SAMPLE_JOBS)
+            st.dataframe(sample_df.head())
+            
+    except Exception as e:
+        st.error(f"Error loading sample data: {e}")
+        st.stop()
+
+# Modify your analyze button section
 if st.button("✨ Analyze Career Path"):
-    if not uploaded_job_data_file:
-        st.error("❌ Please upload the job data CSV file.")
-        st.stop()
-    if not resume_text_input.strip():
-        st.error("❌ Please paste your resume text.")
-        st.stop()
-
-    df = load_df(uploaded_job_data_file)
+    if data_source == "Upload My Data":
+        if not uploaded_job_data_file:
+            st.error("❌ Please upload the job data CSV file.")
+            st.stop()
+        if not resume_text_input.strip():
+            st.error("❌ Please paste your resume text.")
+            st.stop()
+    
+    # Modify load_df function call to handle both uploaded and sample files
+    if isinstance(uploaded_job_data_file, Path):
+        df = pd.read_csv(uploaded_job_data_file)  # For sample data
+    else:
+        df = load_df(uploaded_job_data_file)  # For uploaded data
+        
     if df is None or 'description' not in df.columns:
         st.error("❌ CSV file is invalid or does not contain a 'description' column.")
         st.stop()
 
-    job_descriptions = df['description'].dropna().tolist() # Ensure it's a list of strings
+    job_descriptions = df['description'].dropna().tolist()
     if not job_descriptions:
-        st.error("❌ No job descriptions found in the uploaded file after dropping NaNs.")
+        st.error("❌ No job descriptions found in the file after dropping NaNs.")
         st.stop()
 
     # Limit to 50 for this demo as in original script
     job_descriptions = job_descriptions[:50]
     st.info(f"Found {len(df)} jobs in CSV. Analyzing up to {len(job_descriptions)} job descriptions.")
-
 
     # --- ⚗️ GenAI Capability 1: Document Understanding — Skill Extraction ---
     st.markdown("--- \n## ⚗️ GenAI Capability 1: Document Understanding — Skill Extraction")

@@ -19,6 +19,7 @@ A Streamlit app outgrowth of the Kaggle Google GenAI Capstone Challenge
    ```
 3. Paste your free-tier or higher Google API Key in the sidebar on the landing page to begin
 
+
 4. You have a choice of using existing sample data for analysis or uploading your own
 
 5. AI Career Coach includes a complimentary download of your personalized career advice in convenient .pdf format

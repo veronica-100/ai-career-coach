@@ -13,7 +13,8 @@ import seaborn as sns
 import textwrap
 import markdown2
 # from IPython.display import Markdown, FileLink, display # Not needed for streamlit
-from weasyprint import HTML # Make sure NotoColorEmoji.ttf is available
+from weasyprint import HTML, CSS
+from weasyprint.fonts import FontConfiguration
 from base64 import b64encode
 import google.generativeai as genai
 # from kaggle_secrets import UserSecretsClient # Not needed for streamlit
@@ -29,6 +30,25 @@ from langchain_community.document_loaders import TextLoader # Used for resume fi
 # Chroma
 import chromadb
 from chromadb.config import Settings
+
+# --- Adding font check ---
+# Get the absolute path to your font file
+font_path = Path(__file__).parent / "fonts" / "NotoColorEmoji.ttf"
+
+# Verify font exists and is accessible
+if not font_path.exists():
+    st.warning("Font file not found!")
+
+font_config = FontConfiguration()
+css = CSS(string='''
+    @font-face {
+        font-family: 'Noto Color Emoji';
+        src: url('fonts/NotoColorEmoji.ttf') format('truetype');
+    }
+    body {
+        font-family: 'Noto Color Emoji', sans-serif;
+    }
+''', font_config=font_config)
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -504,13 +524,6 @@ if st.button("✨ Analyze Career Path"):
         # --- PDF Generation (Requires NotoColorEmoji.ttf in the same directory or correct path) ---
         try:
             html_body_content = markdown2.markdown(md_output)
-            
-            # Check for NotoColorEmoji.ttf - place it in your app's root directory
-            font_path = "NotoColorEmoji.ttf"
-            font_url_src = f"src: url('{font_path}');" if os.path.exists(font_path) else ""
-            if not os.path.exists(font_path):
-                st.warning(f"⚠️ {font_path} not found. Emojis might not render correctly in PDF.")
-
 
             html_full_for_pdf = f"""
             <!DOCTYPE html>
@@ -521,7 +534,7 @@ if st.button("✨ Analyze Career Path"):
                     @page {{ margin: 20px; }}
                     @font-face {{
                         font-family: "Noto Color Emoji";
-                        {font_url_src} /* Path to NotoColorEmoji.ttf */
+                        src: url("{font_path}") format("truetype");
                     }}
                     body {{
                         font-family: "Noto Color Emoji", "Helvetica", "Arial", sans-serif;
@@ -537,6 +550,8 @@ if st.button("✨ Analyze Career Path"):
             </body>
             </html>
             """
+
+            # Remove the commented-out code since you're not using it
             pdf_bytes = HTML(string=html_full_for_pdf).write_pdf()
             st.download_button(
                 label="📥 Download Career Advice PDF",

@@ -2,7 +2,7 @@ streamlit
 openai
 pandas
 markdown2
-weasyprint==60.1
+weasyprint
 google-generativeai
 matplotlib
 seaborn

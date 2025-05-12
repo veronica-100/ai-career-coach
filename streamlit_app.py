@@ -43,17 +43,6 @@ font_path = Path(__file__).parent / "fonts" / "NotoColorEmoji.ttf"
 if not font_path.exists():
     st.warning("Font file not found!")
 
-font_config = FontConfiguration()
-css = CSS(string='''
-    @font-face {
-        font-family: 'Noto Color Emoji';
-        src: url('fonts/NotoColorEmoji.ttf') format('truetype');
-    }
-    body {
-        font-family: 'Noto Color Emoji', sans-serif;
-    }
-''', font_config=font_config)
-
 # --- Page Configuration ---
 st.set_page_config(
     page_title='🤖 AI Career Coach 💼',

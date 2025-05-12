@@ -419,20 +419,25 @@ if st.button("✨ Analyze Career Path"):
             similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
         
             # Get job titles for the heatmap labels
-            heatmap_labels = []
-            try:
-                if 'title' in df.columns:
-                    for i in range(top_n_heatmap):
-                        # Assuming each chunk belongs to one job, get the title from the first chunk's source
-                        job_index = int(query_results["metadatas"][0][i]["source"].split("_")[-1]) if query_results and query_results["metadatas"] and query_results["metadatas"][0] else i  # Use i as fallback
-                        job_title = df.iloc[job_index]['title']
-                        truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                        heatmap_labels.append(truncated_title)
-                else:
-                    heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-            except (KeyError, ValueError, IndexError, TypeError) as e:
-                st.warning(f"Could not retrieve all job titles for heatmap: {e}. Using chunk numbers.")
-                heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+                   heatmap_labels = []
+                   try:
+                       if 'title' in df.columns:
+                           for i in range(top_n_heatmap):
+                               # Assuming the top_n_heatmap chunks are the first top_n in docs_split
+                               # We need to find the original index of the job description
+                               source_info = docs_split[i].metadata.get("source", "")
+                               try:
+                                   job_index = int(source_info.split("_")[-1])
+                                   job_title = df.iloc[job_index]['title']
+                                   truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                                   heatmap_labels.append(truncated_title)
+                               except (ValueError, IndexError):
+                                   heatmap_labels.append(f"Job Chunk {i + 1}") # Fallback if index extraction fails
+                       else:
+                           heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+                   except Exception as e:
+                       st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
+                       heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
         
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
@@ -456,7 +461,7 @@ if st.button("✨ Analyze Career Path"):
             st.write("Not enough job chunks to create a heatmap.")
 
     # --- 🗺️ GenAI Capability 3: Career Advice ---
-    st.markdown("--- \n## 🗺️ GenAI Capability 3: Personalized Career Advice")
+    st.markdown("--- \n## 🗺️ GenAI Capability 3: Personalized Career Guidance")
     with st.spinner("Generating personalized career advice... This may take a couple of calls to the AI."):
         # Using a current, robust model. You might need to adjust model names.
         # Consider using a single, more capable model for simplicity if desired.
@@ -519,9 +524,6 @@ if st.button("✨ Analyze Career Path"):
             "Missing Skills": part_1_3_4_json.get("Missing Skills", []),
             "Learning Resources": part_1_3_4_json.get("Learning Resources", [])
         }
-
-        # --- Format to Markdown and PDF ---
-        st.subheader("✨ Formatted Career Advice")
 
         # Format Suggested Next Roles
         next_roles_md_list = []

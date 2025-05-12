@@ -417,33 +417,32 @@ if st.button("✨ Analyze Career Path"):
             job_chunk_embeddings_for_heatmap = all_doc_embeddings[:top_n_heatmap]
         
             similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
-        
-    # Get job titles for the heatmap labels
-           heatmap_labels = []
-           try:
-               if 'title' in df.columns:
-                   for i in range(top_n_heatmap):
-                       # Safely access docs_split and its metadata
-                       if i < len(docs_split) and docs_split[i] and docs_split[i].metadata:
-                           source_info = docs_split[i].metadata.get("source", "")
-                           try:
-                               job_index = int(source_info.split("_")[-1])
-                               # Safely access df rows
-                               if job_index < len(df):
-                                   job_title = df.iloc[job_index]['title']
-                                   truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                                   heatmap_labels.append(truncated_title)
-                               else:
-                                   heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if job_index out of range
-                           except (ValueError, IndexError):
-                               heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if index extraction fails
-                       else:
-                           heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if docs_split access fails
+            # Get job titles for the heatmap labels
+            heatmap_labels = []
+            try:
+                if 'title' in df.columns:
+                    for i in range(top_n_heatmap):
+                        # Safely access docs_split and its metadata
+                        if i < len(docs_split) and docs_split[i] and docs_split[i].metadata:
+                            source_info = docs_split[i].metadata.get("source", "")
+                            try:
+                                job_index = int(source_info.split("_")[-1])
+                                # Safely access df rows
+                                if job_index < len(df):
+                                    job_title = df.iloc[job_index]['title']
+                                    truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                                    heatmap_labels.append(truncated_title)
+                                  else:
+                                    heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if job_index out of range
+                            except (ValueError, IndexError):
+                                heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if index extraction fails
+                        else:
+                            heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if docs_split access fails
                 else:
                     heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-           except Exception as e:
-               st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
-               heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+            except Exception as e:
+                st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
+                heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
         
             fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",

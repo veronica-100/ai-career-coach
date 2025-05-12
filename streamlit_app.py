@@ -503,35 +503,45 @@ if st.button("✨ Analyze Career Path"):
         # --- PDF Generation (Requires NotoColorEmoji.ttf in the same directory or correct path) ---
         try:
             html_body_content = markdown2.markdown(md_output)
-
+            
+            # Set up font configuration
+            font_config = FontConfiguration()
+            font_path = Path(__file__).parent / "fonts" / "NotoColorEmoji.ttf"
+            
+            # Create CSS with font configuration
+            css = CSS(string=f'''
+                @page {{ margin: 20px; }}
+                @font-face {{
+                    font-family: "Noto Color Emoji";
+                    src: url("{font_path}") format("truetype");
+                }}
+                body {{
+                    font-family: "Noto Color Emoji", "Helvetica", "Arial", sans-serif;
+                    line-height: 1.6;
+                    max-width: 800px;
+                    margin: 1rem auto;
+                    padding: 20px;
+                }}
+            ''', font_config=font_config)
+        
             html_full_for_pdf = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <style>
-                    @page {{ margin: 20px; }}
-                    @font-face {{
-                        font-family: "Noto Color Emoji";
-                        src: url("{font_path}") format("truetype");
-                    }}
-                    body {{
-                        font-family: "Noto Color Emoji", "Helvetica", "Arial", sans-serif;
-                        line-height: 1.6;
-                        max-width: 800px;
-                        margin: 1rem auto;
-                        padding: 20px;
-                    }}
-                </style>
             </head>
             <body>
                 {html_body_content}
             </body>
             </html>
             """
-
-            # Remove the commented-out code since you're not using it
-            pdf_bytes = HTML(string=html_full_for_pdf).write_pdf()
+        
+            # Create PDF with proper configuration
+            pdf_bytes = HTML(string=html_full_for_pdf).write_pdf(
+                stylesheets=[css],
+                font_config=font_config
+            )
+            
             st.download_button(
                 label="📥 Download Career Advice PDF",
                 data=pdf_bytes,

@@ -602,9 +602,35 @@ if st.button("✨ Analyze Career Path"):
             <html>
             <head>
                 <meta charset="utf-8">
+                <style>
+                    @page {{
+                        margin: 20px; /* Adjust this value as needed */
+                    }}
+                    @font-face {{
+                        font-family: "Noto Color Emoji";
+                        /* Provide the correct path to your Noto Color Emoji.ttf file */
+                        src: url("NotoColorEmoji.ttf"); /* Example: if NotoColorEmoji.ttf is in the same directory */
+                    }}
+                    body {{
+                        /* Prioritize Noto Color Emoji for emoji and potential bullet rendering */
+                        font-family: "Noto Color Emoji", "Droid Sans Fallback", "Liberation Sans", "Nimbus Sans", sans-serif !important;
+                        line-height: 1.6;
+                        max-width: 800px;
+                        margin: 1rem auto;
+                        position: relative;
+                        padding-left: 20px; /* Add left padding */
+                        padding-right: 20px; /* Add right padding */
+                    }}
+                    .content {{
+                        position: relative;
+                        z-index: 1;
+                    }}
+                </style>
             </head>
             <body>
-                {html_body_content}
+                <div class="content">
+                    {html_body}
+                </div>
             </body>
             </html>
             """

@@ -422,31 +422,28 @@ if st.button("✨ Analyze Career Path"):
             try:
                 if 'title' in df.columns:
                     for i in range(top_n_heatmap):
-                        # Safely access docs_split and its metadata
-                        if i < len(docs_split) and docs_split[i] and docs_split[i].metadata:
-                            source_info = docs_split[i].metadata.get("source", "")
-                            try:
-                                job_index = int(source_info.split("_")[-1])
-                                # Safely access df rows
-                                if job_index < len(df):
-                                    job_title = df.iloc[job_index]['title']
-                                    truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                                    heatmap_labels.append(truncated_title)
-                                else:
-                                    heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if job_index out of range
-                            except (ValueError, IndexError):
-                                heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if index extraction fails
-                        else:
-                            heatmap_labels.append(f"Job Chunk {i + 1}")  # Fallback if docs_split access fails
+                        try:
+                            # Match the metadata access pattern from your working Top 3 code
+                            source_info = docs_split[i].metadata["source"]  # Direct access like query_results
+                            job_index = int(source_info.split("_")[-1])
+                            job_title = df.iloc[job_index]['title']
+                            truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
+                            heatmap_labels.append(truncated_title)
+                        except (KeyError, ValueError, IndexError) as e:
+                            # st.write(f"Debug - Error for chunk {i}:", e)  # Optional debug line
+                            heatmap_labels.append(f"Job Chunk {i + 1}")
                 else:
                     heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
             except Exception as e:
                 st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
                 heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-
-            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
+            
+            # Optional debug line to see what labels were generated
+            # st.write("Debug - Heatmap labels:", heatmap_labels)
+            
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))
             sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
-                        xticklabels=heatmap_labels,  # Use job titles or chunk numbers
+                        xticklabels=heatmap_labels,
                         yticklabels=["Resume"],
                         vmin=0, vmax=1, ax=ax_heatmap)
             

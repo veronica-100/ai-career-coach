@@ -411,41 +411,28 @@ if st.button("✨ Analyze Career Path"):
         else:
             st.warning("No document chunks were created for ChromaDB. Skipping vector search.")
 
-        # Cosine Similarity Heatmap (Resume vs Top N Job Chunks)
-        st.subheader("🔥 Cosine Similarity Heatmap: Resume vs Top Job Chunks")
-        query_results_heatmap = collection.query(query_embeddings=[resume_embedding], n_results=min(10, len(docs_split)))
-        top_n_heatmap = len(query_results_heatmap.documents[0]) if query_results_heatmap.documents else 0
-        if top_n_heatmap > 0:
-            # Using all_doc_embeddings which are already generated for all chunks
-            job_chunk_embeddings_for_heatmap = all_doc_embeddings[:top_n_heatmap]
+        # Cosine Similarity Heatmap (Resume vs Top N Jobs)
+        st.subheader("🔥 Cosine Similarity Heatmap: Resume vs Top 20 Jobs")
+        top_n_heatmap_jobs = min(20, len(df))  # Use the number of full job descriptions
+        if top_n_heatmap_jobs > 0:
+            job_embeddings_all = get_gemini_embeddings(df['description'].tolist())
+            similarities_all = cosine_similarity([resume_embedding], job_embeddings_all)[0]
+            top_indices_heatmap = np.argsort(similarities_all)[::-1][:top_n_heatmap_jobs]
+            top_job_titles_heatmap = df['title'].iloc[top_indices_heatmap].tolist()
+            top_job_embeddings_heatmap = [job_embeddings_all[i] for i in top_indices_heatmap]
 
-            similarities = cosine_similarity([resume_embedding], job_chunk_embeddings_for_heatmap)[0]
-            # Get job titles for the heatmap labels
-            heatmap_labels = []
-            try:
-                if 'title' in df.columns:
-                    for i in range(top_n_heatmap):
-                        # Find the index of the chunk in docs_split
-                        chunk_text = query_results_heatmap.documents[0][i]
-                        chunk_index_in_docs_split = all_doc_texts.index(chunk_text)
-                        # Extract original job index from chunk metadata
-                        source_info = docs_split[chunk_index_in_docs_split].metadata["source"]
-                        job_index = int(source_info.split("_")[-1])
-                        job_title = df.iloc[job_index]['title']
-                        truncated_title = textwrap.shorten(str(job_title), width=30, placeholder="...")
-                        heatmap_labels.append(truncated_title)
-                else:
-                    heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
-            except Exception as e:
-                st.warning(f"Error retrieving heatmap titles: {e}. Using chunk numbers.")
-                heatmap_labels = [f"Job Chunk {i + 1}" for i in range(top_n_heatmap)]
+            # 🔥 Truncate job titles to max 30 characters
+            truncated_top_job_titles_heatmap = [textwrap.shorten(title, width=30, placeholder="…") for title in top_job_titles_heatmap]
 
-            fig_heatmap, ax_heatmap = plt.subplots(figsize=(12, 2))  # Adjust size
-            sns.heatmap(similarities.reshape(1, -1), annot=True, cmap="YlGnBu",
-                        xticklabels=heatmap_labels,  # Use job titles or chunk numbers
-                        yticklabels=["Resume"],
-                        vmin=0, vmax=1, ax=ax_heatmap)
-            ax_heatmap.set_title(f"Cosine Similarity: Resume vs Top {top_n_heatmap} Job Description Chunks")
+            matrix_heatmap = cosine_similarity([resume_embedding] + top_job_embeddings_heatmap)
+            labels_heatmap = ["Resume"] + truncated_top_job_titles_heatmap
+
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(15, 12))
+            sns.heatmap(np.vstack([matrix_heatmap[0, 1:], matrix_heatmap[1:, 1:]]), annot=True,
+                        cmap="YlGnBu", xticklabels=truncated_top_job_titles_heatmap,
+                        yticklabels=labels_heatmap, vmin=0, vmax=1, fmt=".2f")
+            ax_heatmap.set_title(f"Cosine Similarity: Resume and Top {top_n_heatmap_jobs} Jobs")
+            plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
             st.pyplot(fig_heatmap)
 
@@ -455,11 +442,11 @@ if st.button("✨ Analyze Career Path"):
             st.download_button(
                 label="Download Heatmap",
                 data=img_heatmap_bytes,
-                file_name=f"similarity_heatmap_top_{top_n_heatmap}.png",
+                file_name=f"similarity_heatmap_top_{top_n_heatmap_jobs}_jobs.png",
                 mime="image/png"
             )
         else:
-            st.write("Not enough job chunks to create a heatmap.")
+            st.warning("No job descriptions available to create a heatmap.")
 
     # --- 🗺️ GenAI Capability 3: Career Advice ---
     st.markdown("--- \n## 🗺️ GenAI Capability 3: Personalized Career Guidance")

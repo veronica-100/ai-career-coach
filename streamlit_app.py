@@ -14,7 +14,7 @@ import textwrap
 import markdown2
 # from IPython.display import Markdown, FileLink, display # Not needed for streamlit
 from weasyprint import HTML, CSS
-from weasyprint.text.fonts import font_config
+from weasyprint.text.fonts import FontConfiguration
 import google.generativeai as genai
 # from kaggle_secrets import UserSecretsClient # Not needed for streamlit
 from sklearn.metrics.pairwise import cosine_similarity
@@ -38,7 +38,7 @@ font_path = Path(__file__).parent / "fonts" / "NotoColorEmoji.ttf"
 if not font_path.exists():
     st.warning("Font file not found!")
 
-font_config = font_config()
+font_config = FontConfiguration()
 css = CSS(string='''
     @font-face {
         font-family: 'Noto Color Emoji';

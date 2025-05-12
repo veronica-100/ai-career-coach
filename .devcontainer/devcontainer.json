@@ -18,7 +18,7 @@
     }
   },
   // Corrected: postCreateCommand moved to be a top-level property
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libpangoft2-1.0-0 libfreetype6 libharfbuzz0b libglib2.0-0",
+  "postCreateCommand": "sudo apt-get update && sudo apt install weasyprint",
   "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
   "postAttachCommand": {
     "server": "streamlit run streamlit_app.py --server.enableCORS false --server.enableXsrfProtection false"

@@ -148,7 +148,7 @@ st.markdown('''
 Models used (via Vertex AI / Google AI Studio):
 - `gemini-2.0-flash-lite` (or similar for skill extraction)
 - `text-embedding-004`
-- `gemini-1.5-pro-002` / `gemini-2.5-pro-exp-03-25` (or latest available pro model)
+- `gemini-2.0-flash` (or latest available free pro model)
 ''')
 
 st.markdown('''
@@ -389,7 +389,7 @@ if st.button("✨ Analyze Career Path"):
     with st.spinner("Generating personalized career advice... This may take a couple of calls to the AI."):
         # Using a current, robust model. You might need to adjust model names.
         # Consider using a single, more capable model for simplicity if desired.
-        model_name_pro = 'gemini-1.5-pro-latest' # or 'gemini-1.5-flash-latest' for speed/cost
+        model_name_pro = 'gemini-2.0-flash'
 
         # 1, 3, 4 from one model call
         prompt_1_3_4 = f"""

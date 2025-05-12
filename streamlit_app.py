@@ -254,12 +254,12 @@ if st.button("✨ Analyze Career Path"):
             prompt = f"""
             Extract the hard and soft skills from the following job description.
             Format as JSON with 'Hard Skills' and 'Soft Skills' keys.
-            Each skill should be a concise phrase.
+            Each skill should be a concise phrase.  
+            IMPORTANT: Do not use trailing commas after the last item in arrays.
 
             Job Description:
             {job_desc_text}
 
-            IMPORTANT: Do not use trailing commas after the last item in arrays.
             """
             try:
                 # Using the cached function for API call if this part is refactored into one

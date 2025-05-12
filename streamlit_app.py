@@ -629,4 +629,4 @@ if st.button("✨ Analyze Career Path"):
 
 st.markdown("---")
 st.markdown("Built with [Streamlit](https://streamlit.io) & Google Generative AI Models.")
-st.markdown("Adapted from an original Kaggle Notebook concept.")
+st.markdown("[Adapted from an original Kaggle Notebook concept.](https://www.kaggle.com/code/veronicazaitoun/ai-career-coach/notebook)")
